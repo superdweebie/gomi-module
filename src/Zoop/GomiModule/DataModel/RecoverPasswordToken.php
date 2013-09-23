@@ -11,9 +11,6 @@ use Zoop\Shard\Annotation\Annotations as Shard;
 
 /**
  *
- * @license MIT
- * @link    http://www.doctrine-project.org/
- * @since   0.1.0
  * @author  Tim Roediger <superdweebie@gmail.com>
  *
  * @ODM\Document

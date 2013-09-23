@@ -8,7 +8,6 @@ namespace Zoop\GomiModule\Service;
 
 use Zoop\GomiModule\Controller\RecoverPasswordTokenController;
 use Zoop\GomiModule\Options\RecoverPasswordTokenControllerOptions;
-use Zoop\ShardModule\Controller\JsonRestfulController\DoctrineSubscriber;
 use Zend\ServiceManager\FactoryInterface;
 use Zend\ServiceManager\ServiceLocatorInterface;
 
@@ -20,6 +19,14 @@ use Zend\ServiceManager\ServiceLocatorInterface;
  */
 class RecoverPasswordTokenControllerFactory implements FactoryInterface
 {
+    protected $restControllerMap;
+
+    protected function getRestControllerMap($serviceLocator){
+        if (!isset($this->restControllerMap)) {
+            $this->restControllerMap = $serviceLocator->get('zoop.shardmodule.restcontrollermap');
+        }
+        return $this->restControllerMap;
+    }
 
     /**
      *
@@ -28,21 +35,8 @@ class RecoverPasswordTokenControllerFactory implements FactoryInterface
      */
     public function createService(ServiceLocatorInterface $serviceLocator)
     {
-        $options = $serviceLocator->getServiceLocator()
-            ->get('config')['zoop']['gomi']['recover_password_token_controller_options'];
-
-        $options['service_locator'] = $serviceLocator->getServiceLocator()
-            ->get('shard.' . $options['manifest_name'] . '.servicemanager');
-
-        $options['endpointMap'] = $options['service_locator']->get('endpointMap');
-        $options['endpoint'] = $options['endpointMap']->getEndpoint($options['endpoint']);
-        $options['document_class'] = $options['endpoint']->getClass();
-
-        $instance = new RecoverPasswordTokenController(
-            new RecoverPasswordTokenControllerOptions($options)
+        return new RecoverPasswordTokenController(
+            $this->getRestControllerMap($serviceLocator->getServiceLocator())->getOptionsFromEndpoint('recoverpasswordtoken')
         );
-        $instance->setDoctrineSubscriber(new DoctrineSubscriber);
-
-        return $instance;
     }
 }

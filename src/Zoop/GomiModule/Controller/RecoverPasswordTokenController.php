@@ -5,7 +5,8 @@
  */
 namespace Zoop\GomiModule\Controller;
 
-use Zoop\ShardModule\Controller\JsonRestfulController;
+use Zoop\ShardModule\Controller\Listener\FlushListener;
+use Zoop\ShardModule\Controller\RestfulController;
 use Zoop\GomiModule\DataModel\User;
 use Zoop\GomiModule\Exception;
 use Zend\Mail\Message;
@@ -19,7 +20,7 @@ use Zend\View\Model\JsonModel;
  * @version $Revision$
  * @author  Tim Roediger <superdweebie@gmail.com>
  */
-class RecoverPasswordTokenController extends JsonRestfulController
+class RecoverPasswordTokenController extends RestfulController
 {
 
     /**
@@ -34,11 +35,11 @@ class RecoverPasswordTokenController extends JsonRestfulController
     public function create($data)
     {
         $pieces = explode('/', $this->request->getUri()->getPath());
-        if ($pieces[count($pieces) - 1] !== $this->options->getEndpoint()->getName()) {
+        if ($pieces[count($pieces) - 1] !== $this->options->getEndpoint()) {
             return $this->update($pieces[count($pieces) - 1], $data);
         }
 
-        $documentManager = $this->options->getDocumentManager();
+        $documentManager = $this->options->getModelManager();
         $userMetadata = $documentManager->getClassMetadata($this->options->getUserClass());
 
         $criteria = [];
@@ -46,20 +47,18 @@ class RecoverPasswordTokenController extends JsonRestfulController
             $criteria['username'] = $data['username'];
         }
 
+        $metadata = $documentManager->getClassMetadata($this->options->getUserClass());
+
+        $blockCipherServiceName = $metadata->crypt['blockCipher']['email']['service'];
+        $blockCipherService = $this->options->getManifest()->getServiceManager()->get($blockCipherServiceName);
+
+        $key = $this->options->getManifest()->getServiceManager()
+            ->get($metadata->crypt['blockCipher']['email']['key'])->getKey();
+
         if (isset($data['email']) && $data['email'] != '') {
-
-            $metadata = $documentManager->getClassMetadata($this->options->getUserClass());
-            $servicePrefix = 'shard.' . $this->options->getManifestName() . '.';
-
-            $blockCipherServiceName = $metadata->crypt['blockCipher']['email']['service'];
-            $blockCipherService = $this->serviceLocator->get($servicePrefix . $blockCipherServiceName);
-
-            $key = $this->serviceLocator
-                ->get($servicePrefix . $metadata->crypt['blockCipher']['email']['key'])->getKey();
-
             if (isset($metadata->crypt['blockCipher']['email']['salt'])) {
-                $salt = $this->serviceLocator
-                    ->get($servicePrefix . $metadata->crypt['blockCipher']['email']['salt'])->getSalt();
+                $salt = $this->options->getManifest()->getServiceManager()
+                    ->get($metadata->crypt['blockCipher']['email']['salt'])->getSalt();
             } else {
                 $salt = null;
             }
@@ -84,7 +83,7 @@ class RecoverPasswordTokenController extends JsonRestfulController
 
         // delete any existing tokens for the user
         $documentManager
-            ->createQueryBuilder($this->options->getDocumentClass())
+            ->createQueryBuilder($this->options->getClass())
             ->remove()
             ->field('username')->equals($user->getUsername())
             ->getQuery()
@@ -102,7 +101,7 @@ class RecoverPasswordTokenController extends JsonRestfulController
         $headers = $this->response->getHeaders();
         $headers->removeHeader($headers->get('Location'));
 
-        $link = '/rest/' . $this->options->getEndpoint()->getName() . '/' . $code;
+        $link = '/rest/' . $this->options->getEndpoint() . '/' . $code;
 
         // Create email body
         $body = new ViewModel(
@@ -115,9 +114,6 @@ class RecoverPasswordTokenController extends JsonRestfulController
         $body->setTemplate($this->options->getEmailTemplate());
 
         //decrypt email
-        $blockCipherService = $this->options
-            ->getServiceLocator()->get($userMetadata->crypt['blockCipher']['email']['service']);
-        $key = $this->options->getServiceLocator()->get($userMetadata->crypt['blockCipher']['email']['key'])->getKey();
         $plainEmail = $blockCipherService->decryptValue($user->getEmail(), $key);
 
         // Send the email
@@ -149,8 +145,8 @@ class RecoverPasswordTokenController extends JsonRestfulController
      */
     public function update($id, $data)
     {
-        $documentManager = $this->options->getDocumentManager();
-        $token = $documentManager->createQueryBuilder($this->options->getDocumentClass())
+        $documentManager = $this->options->getModelManager();
+        $token = $documentManager->createQueryBuilder($this->options->getClass())
             ->field('code')->equals($id)
             ->field('expires')->gt(new \DateTime)
             ->getQuery()
@@ -169,11 +165,14 @@ class RecoverPasswordTokenController extends JsonRestfulController
         //need to temporarily change user for AccessControl to allow update even though there is no authenticated user
         $sysUser = new User;
         $sysUser->addRole('sys::recoverpassword');
-        $serviceLocator = $this->options->getServiceLocator();
+        $serviceLocator = $this->options->getManifest()->getServiceManager();
         $serviceLocator->setService('user', $sysUser);
 
         $documentManager->remove($token);
-        $this->flush();
+
+        $flushListener = new FlushListener;
+        $flushListener->flush($this->getEvent());
+
         $sysUser->removeRole('sys::recoverpassword');
 
         $model = $this->acceptableViewModelSelector($this->options->getAcceptCriteria())->setVariables([]);
@@ -227,8 +226,8 @@ class RecoverPasswordTokenController extends JsonRestfulController
             throw new Exception\MethodNotAllowedException;
         }
 
-        $documentManager = $this->options->getDocumentManager();
-        $token = $documentManager->createQueryBuilder($this->options->getDocumentClass())
+        $documentManager = $this->options->getModelManager();
+        $token = $documentManager->createQueryBuilder($this->options->getClass())
             ->field('code')->equals($id)
             ->field('expires')->gt(new \DateTime)
             ->getQuery()

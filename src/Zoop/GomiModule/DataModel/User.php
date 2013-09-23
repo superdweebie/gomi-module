@@ -23,7 +23,6 @@ use Zoop\Shard\Annotation\Annotations as Shard;
  * @author  Tim Roediger <superdweebie@gmail.com>
  *
  * @ODM\Document
- * @Shard\Serializer\ClassName
  * @Shard\AccessControl({
  *     @Shard\Permission\Basic(roles="*",                    allow={"read", "create"}                      ),
  *     @Shard\Permission\Basic(roles="owner",                allow="update::*",        deny="update::roles"),
@@ -56,7 +55,7 @@ class User implements
 
     /**
      * @ODM\String
-     * @Shard\Serializer\Ignore("ignore_when_serializing")
+     * @Shard\Serializer\Ignore
      * @Shard\Crypt\BlockCipher(
      *     key = "crypt.emailaddress",
      *     salt = "crypt.emailaddress"
@@ -96,5 +95,10 @@ class User implements
     public function setEmail($email)
     {
         $this->email = (string) $email;
+    }
+
+    public function __construct()
+    {
+        $this->salt = $this->getSalt();
     }
 }

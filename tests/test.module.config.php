@@ -1,9 +1,11 @@
 <?php
 return [
     'zoop' => [
-        'gomi' => [
-            'recover_password_token_controller_options' => [
-                'mail_transport' => 'Zoop\GomiModule\MailTransport\File'
+        'shard' => [
+            'rest' => [
+                'recoverpasswordtoken' => [
+                    'mail_transport' => 'Zoop\GomiModule\MailTransport\File'
+                ]
             ],
         ],
     ],
