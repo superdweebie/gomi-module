@@ -20,7 +20,6 @@ return [
                         'extension.serializer'    => true,
                         'extension.validator'     => true,
                         'extension.crypt'         => true,
-                        'extension.odmcore'       => true,
                     ],
                     'service_manager_config' => [
                         'factories' => [

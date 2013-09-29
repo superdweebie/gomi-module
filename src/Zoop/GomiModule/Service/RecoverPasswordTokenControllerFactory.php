@@ -7,7 +7,6 @@
 namespace Zoop\GomiModule\Service;
 
 use Zoop\GomiModule\Controller\RecoverPasswordTokenController;
-use Zoop\GomiModule\Options\RecoverPasswordTokenControllerOptions;
 use Zend\ServiceManager\FactoryInterface;
 use Zend\ServiceManager\ServiceLocatorInterface;
 
